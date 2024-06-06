@@ -2,15 +2,16 @@ version: '3.8'
 
 services:
   node:
-    build: .
+    build:
+      network: host
     ports:
       - "3000:3000"
     environment:
-      - MONGO_URI=mongodb://localhost:27017/ChatGpt
+      - MONGO_URI=mongodb://127.0.0.1:27017/ChatGpt
+    network_mode: host
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
-    network_mode: host
 
 volumes:
   mongo-data:
