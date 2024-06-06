@@ -13,7 +13,6 @@ const loginToInfinityCRM = async () => {
         }
     });
 
-    console.log(challengeResponse);
     if (!challengeResponse.data.success) {
         throw new Error('Failed to get challenge token');
     }
@@ -54,6 +53,7 @@ const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
             }
         });
 
+    console.log(response.data);
     return response.data;
 };
 
