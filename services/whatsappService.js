@@ -34,19 +34,18 @@ const initializeClient = (assistantData, store) => {
 
     client.on('message_create', async (message) => {
         try {
-            console.log(message);
-
             const sessionName = await loginToInfinityCRM();
             const response = await sendMessageToInfinityCRM(sessionName, message.body, assistantId, 'email@example.com');
 
             if (response.result.reply) {
                 await client.sendMessage(message.from, response.result.reply);
             } else {
-                await client.sendMessage(message.from, 'Failed to get a response from the assistant.');
+                console.error('Failed to get a response from the assistant.');
+                //await client.sendMessage(message.from, 'Failed to get a response from the assistant.');
             }
         } catch (error) {
             console.error('Error:', error);
-            await client.sendMessage(message.from, 'An error occurred while processing your request.');
+            //await client.sendMessage(message.from, 'An error occurred while processing your request.');
         }
     });
 

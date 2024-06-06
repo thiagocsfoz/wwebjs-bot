@@ -1,6 +1,6 @@
 const axios = require('axios');
 const querystring = require('querystring');
-const crypto = require('crypto');
+const md5 = require('md5');
 
 const loginToInfinityCRM = async () => {
     const username = 'amanda';
@@ -18,7 +18,7 @@ const loginToInfinityCRM = async () => {
     }
 
     const token = challengeResponse.data.result.token;
-    const accessKeyHash = crypto.createHash('md5').update(token + accessKey).digest('hex');
+    const accessKeyHash = md5(token + accessKey);
 
     const loginResponse = await axios.post('https://infinitycrm.com.br/webservice.php',
         querystring.stringify({
