@@ -6,6 +6,7 @@ const { MongoClient } = require('mongodb');
 const clients = {};
 
 const initializeClient = (assistantData, store) => {
+    console.log(assistantData);
     const { _id: assistantId, name, trainings } = assistantData;
 
     const client = new Client({

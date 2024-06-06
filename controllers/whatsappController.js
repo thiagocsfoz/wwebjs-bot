@@ -1,5 +1,5 @@
 const { initializeClient, clients } = require('../services/whatsappService');
-const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode')
 
 exports.generateQr = async (req, res) => {
     console.log('generateQr');
@@ -7,15 +7,18 @@ exports.generateQr = async (req, res) => {
 
     if (!clients[assistantId]) {
         const store = req.app.locals.store;
-        initializeClient(assistantId, store);
+        initializeClient({_id: assistantId}, store);
     }
 
     const client = clients[assistantId];
 
-    client.once('qr', (qr) => {
+    client.once('qr', async (qr) => {
         console.log(`QR code for ${assistantId}`);
-        qrcode.generate(qr, { small: true }, (qrcodeStr) => {
-            res.send(`${qrcodeStr}`);
-        });
+        // qrcode.generate(qr, { small: true }, (qrcodeStr) => {
+        //     res.send(`${qrcodeStr}`);
+        // });
+        // r
+        const qrCodeDataUrl = await QRCode.toDataURL(qr);
+        return res.json({ qrCodeUrl: qrCodeDataUrl });
     });
 };
