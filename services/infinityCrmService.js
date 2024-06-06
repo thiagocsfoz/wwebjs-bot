@@ -40,6 +40,10 @@ const loginToInfinityCRM = async () => {
 };
 
 const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
+    console.log('sessionName ', sessionName);
+    console.log('message ', message);
+    console.log('id ', id);
+    console.log('email ', email);
     const response = await axios.post('https://infinitycrm.com.br/webservice.php',
         querystring.stringify({
             operation: 'ChatGTPApiSendMessage',
@@ -53,7 +57,7 @@ const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
             }
         });
 
-    console.log(response.data);
+    console.log('sendMessageToInfinityCRM ', response.data)
     return response.data;
 };
 
