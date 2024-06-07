@@ -37,7 +37,7 @@ const initializeClient = (assistantData, store) => {
         try {
             console.log(`Starting event to send msg`);
             const sessionName = await loginToInfinityCRM();
-            const response = await sendMessageToInfinityCRM(sessionName, message.body, assistantId.toString(), 'email@example.com');
+            const response = await sendMessageToInfinityCRM(sessionName, message.body, assistantId.toString(), message.from);
 
             if (response.result.reply) {
                 console.log(`Msg response ${response.result.reply}`);
