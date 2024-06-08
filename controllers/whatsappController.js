@@ -12,11 +12,15 @@ exports.generateQr = async (req, res) => {
 
     const client = clients[assistantId];
 
-    client.once('qr', async (qr) => {
+    const qrListener = async (qr) => {
         console.log(`QR code for ${assistantId}`);
         const qrCodeDataUrl = await QRCode.toDataURL(qr);
-        return res.json({ qrCodeUrl: qrCodeDataUrl });
-    });
+        res.json({ qrCodeUrl: qrCodeDataUrl });
+        // Remova o listener após usar o evento qr uma vez
+        client.removeListener('qr', qrListener);
+    };
+
+    client.on('qr', qrListener);
 };
 
 exports.checkConnection = (req, res) => {
