@@ -21,7 +21,7 @@ exports.generateQr = async (req, res) => {
         await mongoClient.connect();
         const db = mongoClient.db();
         const assistantsCollection = db.collection('assistants');
-        const assistant = await assistantsCollection.find({_id: ObjectId(assistantId)}).toArray();
+        const assistant = await assistantsCollection.find({_id: new ObjectId(assistantId)}).toArray();
 
         initializeClient(assistant, store);
         console.log('client initialized successfully');
