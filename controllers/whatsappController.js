@@ -15,7 +15,7 @@ exports.generateQr = async (req, res) => {
     delete clients[assistantId];
     console.log('client deleted successfully');
 
-    const mongoClient = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    const mongoClient = new MongoClient(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
     try {
         await mongoClient.connect();
