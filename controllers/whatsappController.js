@@ -23,7 +23,7 @@ exports.generateQr = async (req, res) => {
         const assistantsCollection = db.collection('assistants');
         const assistant = await assistantsCollection.find({_id: new ObjectId(assistantId)}).toArray();
 
-        initializeClient(assistant, store);
+        initializeClient(assistant[0], store);
         console.log('client initialized successfully');
 
         const newClient = clients[assistantId];
