@@ -39,7 +39,7 @@ exports.generateQr = async (req, res) => {
     } catch (error) {
         console.error('Error initializing clients:', error);
     } finally {
-        await client.close();
+        await mongoClient.close();
     }
 };
 
