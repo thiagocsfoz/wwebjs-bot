@@ -1,5 +1,6 @@
 const { initializeClient, clients } = require('../services/whatsappService');
 const QRCode = require('qrcode');
+const {MongoClient, ObjectId} = require("mongodb");
 
 exports.generateQr = async (req, res) => {
     console.log('request qrcode');
@@ -12,19 +13,33 @@ exports.generateQr = async (req, res) => {
     console.log('client destrod');
     delete clients[assistantId];
     console.log('client deleted successfully');
-    initializeClient({_id: assistantId}, store);
-    console.log('client initialized successfully');
 
-    const newClient = clients[assistantId];
-    const qrListener = async (qr) => {
-        console.log(`QR code for ${assistantId}`);
-        const qrCodeDataUrl = await QRCode.toDataURL(qr);
-        res.json({ qrCodeUrl: qrCodeDataUrl });
-        // Remova o listener após usar o evento qr uma vez
-        newClient.removeListener('qr', qrListener);
-    };
+    const mongoClient = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-    newClient.on('qr', qrListener);
+    try {
+        await mongoClient.connect();
+        const db = mongoClient.db();
+        const assistantsCollection = db.collection('assistants');
+        const assistant = await assistantsCollection.find({_id: ObjectId(assistantId)}).toArray();
+
+        initializeClient(assistant, store);
+        console.log('client initialized successfully');
+
+        const newClient = clients[assistantId];
+        const qrListener = async (qr) => {
+            console.log(`QR code for ${assistantId}`);
+            const qrCodeDataUrl = await QRCode.toDataURL(qr);
+            res.json({ qrCodeUrl: qrCodeDataUrl });
+            // Remova o listener após usar o evento qr uma vez
+            newClient.removeListener('qr', qrListener);
+        };
+
+        newClient.on('qr', qrListener);
+    } catch (error) {
+        console.error('Error initializing clients:', error);
+    } finally {
+        await client.close();
+    }
 };
 
 exports.checkConnection = (req, res) => {
@@ -50,17 +65,17 @@ exports.checkConnection = (req, res) => {
 exports.disconnectPhone = async (req, res) => {
     console.log('disconnectPhone');
     const { assistantId } = req.body;
-
-    const client = clients[assistantId.$oid];
-
+    console.log("assistantId", assistantId);
+    const client = clients[assistantId];
+    console.log("client", client);
     if (client) {
         try {
             await client.logout();
-            delete clients[assistantId.$oid];
-            console.log(`Client disconnected and removed for assistantId: ${assistantId.$oid}`);
+            delete clients[assistantId];
+            console.log(`Client disconnected and removed for assistantId: ${assistantId}`);
             return res.json({ success: true, message: 'Client disconnected successfully' });
         } catch (error) {
-            console.error(`Error disconnecting client for assistantId: ${assistantId.$oid}`, error);
+            console.error(`Error disconnecting client for assistantId: ${assistantId}`, error);
             return res.status(500).json({ success: false, message: 'Error disconnecting client', error });
         }
     } else {
