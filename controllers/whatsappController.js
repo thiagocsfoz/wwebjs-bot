@@ -5,7 +5,11 @@ exports.generateQr = async (req, res) => {
     console.log('generateQr');
     const { assistantId } = req.body;
 
-    if (!clients[assistantId]) {
+    if (clients[assistantId]) {
+        const store = req.app.locals.store;
+        delete clients[assistantId];
+        initializeClient({_id: assistantId}, store);
+    } else {
         const store = req.app.locals.store;
         initializeClient({_id: assistantId}, store);
     }
