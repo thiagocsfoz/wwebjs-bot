@@ -7,6 +7,7 @@ exports.generateQr = async (req, res) => {
     const { assistantId } = req.body;
 
     const store = req.app.locals.store;
+    console.log('assistantId: ', assistantId);
     const client = clients[assistantId];
     console.log('client found: ', client);
     client.destroy()
