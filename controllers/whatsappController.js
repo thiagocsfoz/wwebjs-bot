@@ -22,7 +22,7 @@ exports.generateQr = async (req, res) => {
 exports.checkConnection = (req, res) => {
     console.log('checkConnection');
     const { assistantId } = req.body;
-
+    console.log(assistantId)
     const client = clients[assistantId];
 
     if (client) {
