@@ -33,6 +33,12 @@ const initializeClient = (assistantData, store) => {
         console.log(`Session for client ${assistantId} (${name}) saved.`);
     });
 
+    client.on('disconnected', async () => {
+        await client.logout();
+        delete clients.filter((c) => c === client);
+        console.log(`client ${assistantId} disconnected`);
+    });
+
     client.on('message_create', async (message) => {
         try {
             if(!message.fromMe) {
