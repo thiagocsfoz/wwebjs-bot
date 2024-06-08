@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  node16:
+  node17:
     build:
       network: host
     ports:
