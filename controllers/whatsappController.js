@@ -2,29 +2,29 @@ const { initializeClient, clients } = require('../services/whatsappService');
 const QRCode = require('qrcode');
 
 exports.generateQr = async (req, res) => {
-    console.log('generateQr');
+    console.log('request qrcode');
     const { assistantId } = req.body;
 
-    if (clients[assistantId]) {
-        const store = req.app.locals.store;
-        delete clients[assistantId];
-        initializeClient({_id: assistantId}, store);
-    } else {
-        const store = req.app.locals.store;
-        initializeClient({_id: assistantId}, store);
-    }
-
+    const store = req.app.locals.store;
     const client = clients[assistantId];
+    console.log('client found: ', client);
+    client.destroy()
+    console.log('client destrod');
+    delete clients[assistantId];
+    console.log('client deleted successfully');
+    initializeClient({_id: assistantId}, store);
+    console.log('client initialized successfully');
 
+    const newClient = clients[assistantId];
     const qrListener = async (qr) => {
         console.log(`QR code for ${assistantId}`);
         const qrCodeDataUrl = await QRCode.toDataURL(qr);
         res.json({ qrCodeUrl: qrCodeDataUrl });
         // Remova o listener após usar o evento qr uma vez
-        client.removeListener('qr', qrListener);
+        newClient.removeListener('qr', qrListener);
     };
 
-    client.on('qr', qrListener);
+    newClient.on('qr', qrListener);
 };
 
 exports.checkConnection = (req, res) => {
