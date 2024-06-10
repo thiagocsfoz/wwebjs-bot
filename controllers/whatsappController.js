@@ -10,10 +10,14 @@ exports.generateQr = async (req, res) => {
     console.log('assistantId: ', assistantId);
     const client = clients[assistantId];
     console.log('client found: ', client);
-    client.destroy()
-    console.log('client destrod');
-    delete clients[assistantId];
-    console.log('client deleted successfully');
+
+    if(client !== null && client !== undefined) {
+        client.destroy()
+        console.log('client destrod');
+        delete clients[assistantId];
+        console.log('client deleted successfully');
+
+    }
 
     const mongoClient = new MongoClient(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
