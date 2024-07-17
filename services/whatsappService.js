@@ -5,7 +5,7 @@ const { MongoClient } = require('mongodb');
 
 const clients = {};
 
-const initializeClient = (assistantData, store) => {
+const initializeClient = async (assistantData, store) => {
     console.log(assistantData);
     const { _id: assistantId, name, trainings } = assistantData;
 
@@ -61,7 +61,24 @@ const initializeClient = (assistantData, store) => {
         }
     });
 
-    client.initialize();
+    try {
+        await client.initialize();
+        console.log(`Client ${assistantId} initialized`);
+        const version = await client.getWWebVersion();
+        console.log(`Current WhatsApp Web version for client ${assistantId}: ${version}`);
+    } catch (error) {
+        console.error(`Failed to initialize the client ${assistantId}: ${error}`);
+    }
+
+    try {
+        await client.initialize();
+        console.log(`Client ${assistantId} initialized`);
+        const version = await client.getWWebVersion();
+        console.log(`Current WhatsApp Web version for client ${assistantId}: ${version}`);
+    } catch (error) {
+        console.error(`Failed to initialize the client ${assistantId}: ${error}`);
+    }
+
     clients[assistantId] = client;
 };
 
