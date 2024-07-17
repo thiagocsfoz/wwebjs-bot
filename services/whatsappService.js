@@ -21,7 +21,7 @@ const initializeClient = (assistantData, store) => {
         },
         webVersionCache: {
             type: "remote",
-            remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014680956-alpha.html",
+            remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014940355-alpha.html",
         },
     });
 
