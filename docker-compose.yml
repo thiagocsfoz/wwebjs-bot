@@ -3,7 +3,8 @@ version: '3.8'
 services:
   node19:
     build:
-      network: host
+      context: .
+    network_mode: "host"
     ports:
       - "3000:3000"
     environment:
@@ -11,14 +12,3 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
-
-#  mongo:
-#    image: mongo:6.0
-#    container_name: mongo
-#    ports:
-#      - "27017:27017"
-#    volumes:
-#      - mongo-data:/data/db
-#
-#volumes:
-#  mongo-data:
