@@ -25,7 +25,7 @@ export const generateQr = async (req, res) => {
                         console.error('Error generating QR code:', err);
                         return res.status(500).json({ success: false, message: 'Error generating QR code' });
                     }
-                    return res.json({ success: true, qrCode: url });
+                    return res.json({ qrCodeUrl: url });
                 });
             }
         });

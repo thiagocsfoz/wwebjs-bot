@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  node21:
+  node23:
     build:
       network: host
     network_mode: host
