@@ -66,7 +66,7 @@ export const initializeClient = async (assistantData) => {
         if (connection === 'close') {
             if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
                 console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
-                await delay(5000); // Adicionar um delay antes de tentar reconectar
+                await delay(10000); // Adicionar um delay antes de tentar reconectar
                 initializeClient(assistantId);
             } else {
                 console.log('Connection closed. You are logged out.')
