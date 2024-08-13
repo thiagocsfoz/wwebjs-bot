@@ -1,8 +1,8 @@
-const axios = require('axios');
-const querystring = require('querystring');
-const md5 = require('md5');
+import axios from 'axios';
+import querystring from 'querystring';
+import md5 from 'md5';
 
-const loginToInfinityCRM = async () => {
+export const loginToInfinityCRM = async () => {
     const username = 'amanda';
     const accessKey = 'sVRRDk21NPm996H0';
 
@@ -39,7 +39,7 @@ const loginToInfinityCRM = async () => {
     return loginResponse.data.result.sessionName;
 };
 
-const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
+export const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
     console.log('sessionName ', sessionName);
     console.log('message ', message);
     console.log('id ', id);
@@ -59,9 +59,4 @@ const sendMessageToInfinityCRM = async (sessionName, message, id, email) => {
 
     console.log('sendMessageToInfinityCRM ', response.data)
     return response.data;
-};
-
-module.exports = {
-    loginToInfinityCRM,
-    sendMessageToInfinityCRM
 };

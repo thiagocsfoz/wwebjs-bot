@@ -1,6 +1,6 @@
-const packageJson = require('../package.json'); // Supondo que o package.json está na raiz do projeto
+import packageJson from '../package.json' assert { type: 'json' };
 
-exports.healthCheck = async (req, res) => {
+export const healthCheck = async (req, res) => {
     res.status(200).json({
         status: 'ok',
         version: packageJson.version

@@ -1,6 +1,6 @@
-const express = require('express');
-const { generateQr, checkConnection, disconnectPhone } = require('../controllers/whatsappController');
-const {healthCheck} = require("../controllers/healthCheckController");
+import express from 'express';
+import { generateQr, checkConnection, disconnectPhone } from '../controllers/whatsappController.js';
+import {healthCheck} from "../controllers/healthCheckController.js";
 
 const router = express.Router();
 
@@ -9,4 +9,4 @@ router.post('/check_connection', checkConnection);
 router.post('/disconnect_phone', disconnectPhone);
 router.get('/healthcheck', healthCheck);
 
-module.exports = router;
+export default router;

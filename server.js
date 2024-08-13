@@ -1,12 +1,12 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const app = require('./app');
-const { initializeClients } = require('./services/whatsappService');
-const { MongoStore } = require('wwebjs-mongo');
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import app from './app.js';
+import { initializeClients } from './services/whatsappService.js';
+import { MongoStore } from 'wwebjs-mongo';
 
 const PORT = process.env.PORT || 3000;
 
-    mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('Connected to MongoDB');
 

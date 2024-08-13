@@ -2,6 +2,7 @@
   "name": "wwebjs-bot",
   "version": "1.0.0",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
@@ -9,16 +10,19 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.5",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.19.2",
     "md5": "^2.3.0",
+    "mongodb": "^6.8.0",
     "mongoose": "^8.4.1",
     "openai": "^4.48.2",
+    "pino": "^9.3.2",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
     "wwebjs-mongo": "^1.1.0"
   },
   "devDependencies": {

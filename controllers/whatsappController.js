@@ -1,8 +1,8 @@
-const { initializeClient, clients } = require('../services/whatsappService');
-const QRCode = require('qrcode');
-const {MongoClient, ObjectId} = require("mongodb");
+import { initializeClient, clients } from '../services/whatsappService.js';
+import QRCode from 'qrcode';
+import {MongoClient, ObjectId} from "mongodb";
 
-exports.generateQr = async (req, res) => {
+export const generateQr = async (req, res) => {
     console.log('request qrcode');
     const { assistantId } = req.body;
 
@@ -47,7 +47,7 @@ exports.generateQr = async (req, res) => {
     }
 };
 
-exports.checkConnection = (req, res) => {
+export const checkConnection = (req, res) => {
     console.log('checkConnection');
     const { assistantId } = req.body;
     console.log(assistantId.$oid)
@@ -67,7 +67,7 @@ exports.checkConnection = (req, res) => {
     }
 };
 
-exports.disconnectPhone = async (req, res) => {
+export const disconnectPhone = async (req, res) => {
     console.log('disconnectPhone');
     const { assistantId } = req.body;
     console.log("assistantId", assistantId);
