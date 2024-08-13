@@ -20,8 +20,6 @@ export const initializeClient = async (assistantData) => {
     const { _id: assistantId, name, trainings } = assistantData;
 
     const { state, saveCreds } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
-    console.log('state:', state);
-    console.log('saveCreds:', saveCreds);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -36,27 +34,28 @@ export const initializeClient = async (assistantData) => {
     console.log('handle messages.upsert event');
     sock.ev.on('messages.upsert', async (m) => {
         console.log(JSON.stringify(m, undefined, 2));
-
         const msg = m.messages[0];
         if (!msg.message) return;
 
-        const messageType = Object.keys(msg.message)[0];
-        if (messageType === 'conversation') {
-            const text = msg.message.conversation;
-            console.log(`Mensagem recebida: ${text}`);
+        if (!msg.key.fromMe && m.type === 'notify') {
+            const messageType = Object.keys(msg.message)[0];
+            if (messageType === 'conversation') {
+                const text = msg.message.conversation;
+                console.log(`Mensagem recebida: ${text}`);
 
-            try {
-                const sessionName = await loginToInfinityCRM();
-                const response = await sendMessageToInfinityCRM(sessionName, text, assistantId.toString(), msg.key.remoteJid);
+                try {
+                    const sessionName = await loginToInfinityCRM();
+                    const response = await sendMessageToInfinityCRM(sessionName, text, assistantId.toString(), msg.key.remoteJid);
 
-                if (response.result.reply) {
-                    console.log(`Msg response ${response.result.reply}`);
-                    await sock.sendMessage(msg.key.remoteJid, { text: response.result.reply });
-                } else {
-                    console.error('Failed to get a response from the assistant.');
+                    if (response.result.reply) {
+                        console.log(`Msg response ${response.result.reply}`);
+                        await sock.sendMessage(msg.key.remoteJid, { text: response.result.reply });
+                    } else {
+                        console.error('Failed to get a response from the assistant.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
                 }
-            } catch (error) {
-                console.error('Error:', error);
             }
         }
     });
