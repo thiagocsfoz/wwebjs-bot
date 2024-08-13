@@ -14,7 +14,7 @@ export const generateQr = async (req, res) => {
         const assistantsCollection = db.collection('assistants');
         const assistant = await assistantsCollection.find({_id: new ObjectId(assistantId)}).toArray();
 
-        const client = initializeClient(assistant[0]);
+        const client = await initializeClient(assistant[0]);
         console.log('client initialized successfully');
 
         client.ev.on('connection.update', (update) => {
