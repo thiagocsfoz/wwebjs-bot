@@ -73,7 +73,7 @@ export const initializeClient = async (assistantData) => {
             console.log('Conexão fechada devido a', lastDisconnect.error, ', reconectando!', shouldReconnect);
             if (shouldReconnect) {
                 await delay(5000);
-                initializeClient(assistantData, store);
+                initializeClient(assistantData);
             } else {
                 unlinkSync(`./auth_info_${assistantId}.json`);
             }
