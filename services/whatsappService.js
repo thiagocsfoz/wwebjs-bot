@@ -17,7 +17,6 @@ logger.level = 'trace';
 export const clients = {};
 
 export const initializeClient = async (assistantData) => {
-    console.log(assistantData);
     const { _id: assistantId, name, trainings } = assistantData;
 
     const { state, saveCreds } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
@@ -33,9 +32,6 @@ export const initializeClient = async (assistantData) => {
         },
         printQRInTerminal: false,
     });
-
-    console.log('saveState:', saveCreds);
-    sock.ev.on('creds.update', saveCreds);
 
     console.log('handle messages.upsert event');
     sock.ev.on('messages.upsert', async (m) => {
@@ -69,11 +65,10 @@ export const initializeClient = async (assistantData) => {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Conexão fechada devido a', lastDisconnect.error, ', reconectando!', shouldReconnect);
-            if (shouldReconnect) {
-                await delay(5000);
-                initializeClient(assistantData);
+            if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+                console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
+                await delay(5000); // Adicionar um delay antes de tentar reconectar
+                initializeClient(assistantId);
             } else {
                 console.log('Connection closed. You are logged out.')
             }

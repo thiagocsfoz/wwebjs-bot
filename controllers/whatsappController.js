@@ -64,7 +64,6 @@ export const disconnectPhone = async (req, res) => {
     const { assistantId } = req.body;
     console.log("assistantId", assistantId);
     const client = clients[assistantId];
-    console.log("client", client);
     if (client) {
         try {
             await client.logout();
