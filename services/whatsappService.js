@@ -75,7 +75,7 @@ export const initializeClient = async (assistantData) => {
                 await delay(5000);
                 initializeClient(assistantData);
             } else {
-                unlinkSync(`./auth_info_${assistantId}.json`);
+                unlinkSync(`./stores/baileys_auth_info_${assistantId}`);
             }
         } else if (connection === 'open') {
             console.log(`Client ${assistantId} (${name}) is ready!`);
