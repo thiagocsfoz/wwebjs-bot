@@ -34,8 +34,6 @@ export const generateQr = async (req, res) => {
     } catch (error) {
         console.error(`Error generating QR code for assistantId: ${assistantId}`, error);
         return res.status(500).json({ success: false, message: 'Error generating QR code', error });
-    } finally {
-        await mongoClient.close();
     }
 };
 
