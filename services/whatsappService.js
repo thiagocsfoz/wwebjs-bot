@@ -20,9 +20,9 @@ export const initializeClient = async (assistantData, store) => {
     console.log(assistantData);
     const { _id: assistantId, name, trainings } = assistantData;
 
-    const { state, saveState } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
+    const { state, saveCreds } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
     console.log('state:', state);
-    console.log('saveState:', saveState);
+    console.log('saveCreds:', saveCreds);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -34,8 +34,8 @@ export const initializeClient = async (assistantData, store) => {
         printQRInTerminal: false,
     });
 
-    console.log('saveState:', saveState);
-    sock.ev.on('creds.update', saveState);
+    console.log('saveState:', saveCreds);
+    sock.ev.on('creds.update', saveCreds);
 
     console.log('handle messages.upsert event');
     sock.ev.on('messages.upsert', async (m) => {
