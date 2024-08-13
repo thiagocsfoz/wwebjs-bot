@@ -1,25 +1,12 @@
 import { initializeClient, clients } from '../services/whatsappService.js';
-import QRCode from 'qrcode';
+import qrcode from 'qrcode';
 import {MongoClient, ObjectId} from "mongodb";
 
 export const generateQr = async (req, res) => {
     console.log('request qrcode');
     const { assistantId } = req.body;
 
-    const store = req.app.locals.store;
-    console.log('assistantId: ', assistantId);
-    const client = clients[assistantId];
-    console.log('client found: ', client);
-
-    if(client !== null && client !== undefined) {
-        client.destroy()
-        console.log('client destrod');
-        delete clients[assistantId];
-        console.log('client deleted successfully');
-
-    }
-
-    const mongoClient = new MongoClient(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+    const mongoClient = new MongoClient(process.env.MONGO_URI);
 
     try {
         await mongoClient.connect();
@@ -27,21 +14,24 @@ export const generateQr = async (req, res) => {
         const assistantsCollection = db.collection('assistants');
         const assistant = await assistantsCollection.find({_id: new ObjectId(assistantId)}).toArray();
 
-        initializeClient(assistant[0], store);
+        const client = initializeClient(assistant[0]);
         console.log('client initialized successfully');
 
-        const newClient = clients[assistantId];
-        const qrListener = async (qr) => {
-            console.log(`QR code for ${assistantId}`);
-            const qrCodeDataUrl = await QRCode.toDataURL(qr);
-            res.json({ qrCodeUrl: qrCodeDataUrl });
-            // Remova o listener após usar o evento qr uma vez
-            newClient.removeListener('qr', qrListener);
-        };
-
-        newClient.on('qr', qrListener);
+        client.ev.on('connection.update', (update) => {
+            const { qr } = update;
+            if (qr) {
+                qrcode.toDataURL(qr, (err, url) => {
+                    if (err) {
+                        console.error('Error generating QR code:', err);
+                        return res.status(500).json({ success: false, message: 'Error generating QR code' });
+                    }
+                    return res.json({ success: true, qrCode: url });
+                });
+            }
+        });
     } catch (error) {
-        console.error('Error initializing clients:', error);
+        console.error(`Error generating QR code for assistantId: ${assistantId}`, error);
+        return res.status(500).json({ success: false, message: 'Error generating QR code', error });
     } finally {
         await mongoClient.close();
     }

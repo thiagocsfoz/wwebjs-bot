@@ -16,7 +16,7 @@ logger.level = 'trace';
 
 export const clients = {};
 
-export const initializeClient = async (assistantData, store) => {
+export const initializeClient = async (assistantData) => {
     console.log(assistantData);
     const { _id: assistantId, name, trainings } = assistantData;
 
@@ -83,6 +83,7 @@ export const initializeClient = async (assistantData, store) => {
     });
 
     clients[assistantId] = sock;
+    return sock;
 };
 
 export const initializeClients = async (mongoUri, store) => {
@@ -95,7 +96,7 @@ export const initializeClients = async (mongoUri, store) => {
         const assistants = await assistantsCollection.find({}).toArray();
 
         assistants.forEach(assistantData => {
-            initializeClient(assistantData, store);
+            initializeClient(assistantData);
         });
     } catch (error) {
         console.error('Error initializing clients:', error);
