@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  node19:
+  node20:
     build:
-      context: .
-    network_mode: "host"
+      network: host
+    network_mode: host
     ports:
       - "3000:3000"
     environment:
