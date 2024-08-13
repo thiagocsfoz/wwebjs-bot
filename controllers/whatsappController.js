@@ -1,6 +1,8 @@
 import { initializeClient, clients } from '../services/whatsappService.js';
 import qrcode from 'qrcode';
 import {MongoClient, ObjectId} from "mongodb";
+import path from "path";
+import fs from "fs";
 
 export const generateQr = async (req, res) => {
     console.log('request qrcode');
@@ -44,9 +46,9 @@ export const checkConnection = (req, res) => {
     const client = clients[assistantId.$oid];
 
     if (client) {
-        if (client.info && client.info.wid) {
-            console.log(`Client is connected with number: ${client.info.wid.user}`);
-            return res.json({ connected: true, phoneNumber: client.info.wid.user });
+        if (client.user && client.user.id) {
+            console.log(`Client is connected with number:  ${client.user.id}`);
+            return res.json({ connected: true, phoneNumber: client.user.id });
         } else {
             console.log(`Client is not connected for assistantId: ${assistantId.$oid}`);
             return res.json({ connected: false, phoneNumber: null });
@@ -68,6 +70,17 @@ export const disconnectPhone = async (req, res) => {
             await client.logout();
             delete clients[assistantId];
             console.log(`Client disconnected and removed for assistantId: ${assistantId}`);
+
+            // Remove the authentication folder
+            const authPath = path.resolve(`./stores/baileys_auth_info_${assistantId}`);
+            fs.rm(authPath, { recursive: true, force: true }, (err) => {
+                if (err) {
+                    console.error(`Error removing auth folder for assistantId: ${assistantId}`, err);
+                } else {
+                    console.log(`Auth folder removed for assistantId: ${assistantId}`);
+                }
+            });
+
             return res.json({ success: true, message: 'Client disconnected successfully' });
         } catch (error) {
             console.error(`Error disconnecting client for assistantId: ${assistantId}`, error);
