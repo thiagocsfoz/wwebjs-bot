@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  node18:
+  node19:
     build:
       network: host
     ports:
       - "3000:3000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/ChatGpt
+      - MONGO_URI=mongodb://127.0.0.1:27017/ChatGpt
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
