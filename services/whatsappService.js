@@ -28,7 +28,25 @@ export const initializeClient = async (assistantData) => {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: true,
+        printQRInTerminal: false,
+    });
+
+    console.log('handle connection.update event');
+    client.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        if(connection === 'close') {
+            // reconnect if not logged out
+            if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+                console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
+                await delay(5000); // Adicionar um delay antes de tentar reconectar
+                await initializeClient(assistantId);
+            } else {
+                console.log('Connection closed. You are logged out.')
+            }
+        } else if (connection === 'open') {
+            console.log(`Client ${assistantId} is ready!`);
+        }
     });
 
     console.log('handle messages.upsert event');
@@ -60,26 +78,6 @@ export const initializeClient = async (assistantData) => {
         }
     });
 
-    console.log('handle connection.update event');
-    sock.ev.on('connection.update', (update) => {
-        const { qr, connection, lastDisconnect } = update;
-
-        if (connection === 'close') {
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            if (statusCode === 515) {
-                console.error('Stream error 515 occurred, restarting the connection...');
-                initializeClient(assistantData); // Tentar reconectar
-            } else if (statusCode !== DisconnectReason.loggedOut) {
-                console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
-                initializeClient(assistantData); // Reconnectar
-            } else {
-                console.log('Connection closed. You are logged out.');
-            }
-        } else if (connection === 'open') {
-            console.log(`Client ${assistantId} (${name}) is ready!`);
-        }
-    });
-
     clients[assistantId] = sock;
     return sock;
 };
@@ -102,3 +100,10 @@ export const initializeClients = async (mongoUri, store) => {
         await client.close();
     }
 };
+
+initializeClients().then(() => {
+    console.log('Service started and clients initialized');
+}).catch(error => {
+    console.error('Failed to initialize clients on service start:', error);
+    // Implement retry logic or other error handling here
+});

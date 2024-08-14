@@ -19,17 +19,10 @@ export const generateQr = async (req, res) => {
         const client = await initializeClient(assistant[0]);
         console.log('client initialized successfully');
 
-        let qrGenerated = false;
-
         client.ev.on('connection.update', (update) => {
-            const { qr, connection } = update;
+            const { qr} = update;
 
-            if (connection === 'close') {
-                console.log(`Connection closed for assistantId: ${assistantId}.`);
-            }
-
-            if (qr && !qrGenerated) {
-                qrGenerated = true;
+            if (qr) {
                 qrcode.toDataURL(qr, (err, url) => {
                     if (err) {
                         console.error('Error generating QR code:', err);
@@ -40,14 +33,6 @@ export const generateQr = async (req, res) => {
                 });
             }
         });
-
-        // Timeout if QR code is not scanned in time
-        setTimeout(() => {
-            if (!qrGenerated) {
-                console.error('QR code generation timeout');
-                return res.status(408).json({ success: false, message: 'QR code generation timeout' });
-            }
-        }, 30000); // 30 seconds timeout
     } catch (error) {
         console.error(`Error generating QR code for assistantId: ${assistantId}`, error);
         return res.status(500).json({ success: false, message: 'Error generating QR code', error });
