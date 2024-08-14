@@ -29,7 +29,7 @@ export const initializeClient = async (assistantData) => {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: true,
+        printQRInTerminal: false,
     });
 
     sock.ev.on('creds.update', saveCreds);
