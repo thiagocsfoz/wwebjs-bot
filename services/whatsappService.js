@@ -103,10 +103,3 @@ export const initializeClients = async (mongoUri, store) => {
         await client.close();
     }
 };
-
-initializeClients().then(() => {
-    console.log('Service started and clients initialized');
-}).catch(error => {
-    console.error('Failed to initialize clients on service start:', error);
-    // Implement retry logic or other error handling here
-});
