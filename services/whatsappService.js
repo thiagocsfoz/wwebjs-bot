@@ -8,8 +8,9 @@ import {
 } from '@whiskeysockets/baileys';
 import { loginToInfinityCRM, sendMessageToInfinityCRM } from './infinityCrmService.js';
 import { MongoClient } from 'mongodb';
-import { unlinkSync } from 'fs';
 import { log } from '../utils/logger.js';
+import path from "path";
+import fs from "fs";
 
 const logger = log.child({});
 logger.level = 'trace';
@@ -28,8 +29,10 @@ export const initializeClient = async (assistantData) => {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: false,
+        printQRInTerminal: true,
     });
+
+    sock.ev.on('creds.update', saveCreds);
 
     console.log('handle connection.update event');
     sock.ev.on('connection.update', async (update) => {
@@ -40,7 +43,7 @@ export const initializeClient = async (assistantData) => {
             if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
                 console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
                 await delay(5000); // Adicionar um delay antes de tentar reconectar
-                await initializeClient(assistantId);
+                initializeClient(assistantId);
             } else {
                 console.log('Connection closed. You are logged out.')
             }
