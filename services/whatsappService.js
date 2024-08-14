@@ -32,7 +32,7 @@ export const initializeClient = async (assistantData) => {
     });
 
     console.log('handle connection.update event');
-    client.ev.on('connection.update', async (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if(connection === 'close') {
