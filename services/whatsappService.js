@@ -28,7 +28,7 @@ export const initializeClient = async (assistantData) => {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: false,
+        printQRInTerminal: true,
     });
 
     console.log('handle messages.upsert event');
@@ -61,15 +61,19 @@ export const initializeClient = async (assistantData) => {
     });
 
     console.log('handle connection.update event');
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+    sock.ev.on('connection.update', (update) => {
+        const { qr, connection, lastDisconnect } = update;
+
         if (connection === 'close') {
-            if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            if (statusCode === 515) {
+                console.error('Stream error 515 occurred, restarting the connection...');
+                initializeClient(assistantData); // Tentar reconectar
+            } else if (statusCode !== DisconnectReason.loggedOut) {
                 console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
-                await delay(10000); // Adicionar um delay antes de tentar reconectar
-                initializeClient(assistantId);
+                initializeClient(assistantData); // Reconnectar
             } else {
-                console.log('Connection closed. You are logged out.')
+                console.log('Connection closed. You are logged out.');
             }
         } else if (connection === 'open') {
             console.log(`Client ${assistantId} (${name}) is ready!`);
