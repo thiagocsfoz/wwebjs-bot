@@ -4,7 +4,8 @@ import {
     DisconnectReason,
     makeCacheableSignalKeyStore,
     delay,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    makeInMemoryStore
 } from '@whiskeysockets/baileys';
 import { loginToInfinityCRM, sendMessageToInfinityCRM } from './infinityCrmService.js';
 import { MongoClient } from 'mongodb';
@@ -16,6 +17,24 @@ const logger = log.child({});
 logger.level = 'trace';
 
 export const clients = {};
+
+const loadStoreForAssistant = (assistantId) => {
+    const storeFilePath = `./stores/store_${assistantId}.json`;
+
+    const store = makeInMemoryStore({ logger: console });
+    if (fs.existsSync(storeFilePath)) {
+        store.readFromFile(storeFilePath);
+    } else {
+        console.warn(`Store file not found for assistantId: ${assistantId}`);
+    }
+
+    // Salvar automaticamente o store em intervalos regulares
+    setInterval(() => {
+        store.writeToFile(storeFilePath);
+    }, 10_000);
+
+    return store;
+};
 
 export const initializeClient = async (assistantData) => {
     const { _id: assistantId, name, trainings } = assistantData;
@@ -92,12 +111,20 @@ export const listAllChats = async (assistantId) => {
     }
 
     try {
-        const chats = client.store.chats.all();
+        const store = loadStoreForAssistant(assistantId); // Carrega a store específica do assistente
+
+        // Acessar os chats diretamente da store
+        const chats = store.chats.all();
+
+        if (!chats) {
+            throw new Error(`No chats found for assistantId: ${assistantId}`);
+        }
+
         return chats.map(chat => ({
             id: chat.id,
-            name: chat.name,
+            name: chat.name || chat.formattedTitle || chat.id.user,
             unreadCount: chat.unreadCount,
-            lastMessage: chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].message.conversation : null
+            lastMessage: chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].body : null
         }));
     } catch (error) {
         console.error(`Error listing chats for assistantId: ${assistantId}`, error);
