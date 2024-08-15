@@ -1,4 +1,4 @@
-import { initializeClient, clients } from '../services/whatsappService.js';
+import {initializeClient, clients, listAllChats} from '../services/whatsappService.js';
 import qrcode from 'qrcode';
 import {MongoClient, ObjectId} from "mongodb";
 import path from "path";
@@ -88,5 +88,21 @@ export const disconnectPhone = async (req, res) => {
     } else {
         console.log(`No client found for assistantId: ${assistantId}`);
         return res.json({ success: false, message: 'No client found' });
+    }
+};
+
+export const getAllChats = async (req, res) => {
+    console.log('getAllChats');
+    const { assistantId } = req.body;
+
+    try {
+        console.log('Listing all chats for assistantId:', assistantId);
+        const chats = await listAllChats(assistantId);
+
+        console.log("chats", chats);
+        return res.json({ success: true, chats });
+    } catch (error) {
+        console.log(`Error fetching chats for assistantId: ${assistantId}`, error);
+        return res.status(500).json({ success: false, message: 'Error fetching chats', error });
     }
 };

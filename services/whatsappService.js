@@ -85,6 +85,26 @@ export const initializeClient = async (assistantData) => {
     return sock;
 };
 
+export const listAllChats = async (assistantId) => {
+    const client = clients[assistantId];
+    if (!client) {
+        throw new Error(`No client found for assistantId: ${assistantId}`);
+    }
+
+    try {
+        const chats = client.store.chats.all();
+        return chats.map(chat => ({
+            id: chat.id,
+            name: chat.name,
+            unreadCount: chat.unreadCount,
+            lastMessage: chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].message.conversation : null
+        }));
+    } catch (error) {
+        console.error(`Error listing chats for assistantId: ${assistantId}`, error);
+        throw error;
+    }
+};
+
 export const initializeClients = async (mongoUri, store) => {
     const client = new MongoClient(mongoUri);
 
