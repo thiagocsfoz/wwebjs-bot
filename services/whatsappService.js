@@ -19,7 +19,7 @@ logger.level = 'trace';
 export const clients = {};
 
 const loadStoreForAssistant = (assistantId) => {
-    const storeFilePath = `./stores/store_${assistantId}.json`;
+    const storeFilePath = `./stores/baileys_auth_info_${assistantId}`;
 
     const store = makeInMemoryStore({ logger: console });
     if (fs.existsSync(storeFilePath)) {
