@@ -1,77 +1,114 @@
 import { MongoClient } from 'mongodb';
 import pkg from '@whiskeysockets/baileys';
-import ObjectRepository from './object-repository.js';
-
 
 const { proto } = pkg;
+
 const makeMongoStore = async (logger, assistantId) => {
     const dbName = 'ChatGpt'; // Altere para o nome do seu banco de dados
-    const collectionName = `baileys_store_${assistantId}`;
     const mongoUri = process.env.MONGO_URI;
 
     const client = new MongoClient(mongoUri);
     await client.connect();
     const db = client.db(dbName);
-    const storeCollection = db.collection(collectionName);
+
+    const chatsCollection = db.collection(`baileys_chats_${assistantId}`);
+    const contactsCollection = db.collection(`baileys_contacts_${assistantId}`);
+    const messagesCollection = db.collection(`baileys_messages_${assistantId}`);
+    const labelsCollection = db.collection(`baileys_labels_${assistantId}`);
+    const labelAssociationsCollection = db.collection(`baileys_label_associations_${assistantId}`);
 
     const storeData = {
-        chats: [],
-        contacts: [],
-        messages: {},
-        labels: [],
-        labelAssociations: []
-    };
-
-    const initialData = await storeCollection.find({}).toArray();
-    if (initialData.length) {
-        // Aqui, você transformará `initialData` em `storeData` apropriado
-        initialData.forEach(doc => {
-            if (doc.type === 'chat') {
-                storeData.chats.push(doc);
-            } else if (doc.type === 'contact') {
-                storeData.contacts.push(doc);
-            } else if (doc.type === 'message') {
-                if (!storeData.messages[doc.chatId]) {
-                    storeData.messages[doc.chatId] = [];
-                }
-                storeData.messages[doc.chatId].push(doc);
-            }
-        });
-    }
-
-    const store = {
-        chats: new Map(storeData.chats.map(chat => [chat.id, chat])),
-        contacts: new Map(storeData.contacts.map(contact => [contact.id, contact])),
-        messages: new Map(Object.entries(storeData.messages)),
-        groupMetadata: new Map(),
-        presences: new Map(),
+        chats: new Map(),
+        contacts: new Map(),
+        messages: new Map(),
         labels: new Map(),
-        labelAssociations: new Map()
+        labelAssociations: new Map(),
     };
+
+    const loadInitialData = async () => {
+        console.log('Loading initial data from MongoDB');
+        // Carregar chats do MongoDB e inserir no storeData
+        const chats = await chatsCollection.find({}).toArray();
+        chats.forEach(chat => storeData.chats.set(chat.id, chat));
+
+        // Carregar contatos do MongoDB e inserir no storeData
+        const contacts = await contactsCollection.find({}).toArray();
+        contacts.forEach(contact => storeData.contacts.set(contact.id, contact));
+
+        // Carregar mensagens do MongoDB e inserir no storeData
+        const messages = await messagesCollection.find({}).toArray();
+        messages.forEach(msg => {
+            if (!storeData.messages.has(msg.chatId)) {
+                storeData.messages.set(msg.chatId, []);
+            }
+            storeData.messages.get(msg.chatId).push(msg);
+        });
+
+        // Carregar labels do MongoDB e inserir no storeData
+        const labels = await labelsCollection.find({}).toArray();
+        labels.forEach(label => storeData.labels.set(label.id, label));
+
+        // Carregar associações de labels do MongoDB e inserir no storeData
+        const labelAssociations = await labelAssociationsCollection.find({}).toArray();
+        labelAssociations.forEach(assoc => storeData.labelAssociations.set(assoc.id, assoc));
+    };
+
+    await loadInitialData();
 
     const saveToMongo = async () => {
-        // Remover todos os documentos anteriores
-        await storeCollection.deleteMany({});
+        // Salvar chats no MongoDB
+        for (const chat of storeData.chats.values()) {
+            const doc = { ...chat, type: 'chat' };
+            const filter = { id: chat.id, type: 'chat' };
+            delete doc._id;
 
-        // Inserir os novos documentos do store
-        const docs = [];
+            await chatsCollection.updateOne(
+                filter,
+                { $set: doc },
+                { upsert: true }
+            );
+        }
 
-        store.chats.forEach(chat => {
-            docs.push({ ...chat, type: 'chat' });
-        });
+        // Salvar contatos no MongoDB
+        for (const contact of storeData.contacts.values()) {
+            const doc = { ...contact, type: 'contact' };
+            const filter = { id: contact.id, type: 'contact' };
+            delete doc._id;
 
-        store.contacts.forEach(contact => {
-            docs.push({ ...contact, type: 'contact' });
-        });
+            await contactsCollection.updateOne(
+                filter,
+                { $set: doc },
+                { upsert: true }
+            );
+        }
 
-        store.messages.forEach((msgs, chatId) => {
-            msgs.forEach(msg => {
-                docs.push({ ...msg, type: 'message', chatId });
-            });
-        });
+        // Save messages
+        for (const [chatId, msgs] of storeData.messages.entries()) {
+            for (const msg of msgs) {
+                await messagesCollection.updateOne(
+                    { 'key.id': msg.key.id, chatId: chatId },
+                    { $set: { ...msg, chatId } },
+                    { upsert: true }
+                );
+            }
+        }
 
-        if (docs.length) {
-            await storeCollection.insertMany(docs);
+        // Save labels
+        for (const label of storeData.labels.values()) {
+            await labelsCollection.updateOne(
+                { labelId: label.labelId },
+                { $set: label },
+                { upsert: true }
+            );
+        }
+
+        // Save label associations
+        for (const assoc of storeData.labelAssociations.values()) {
+            await labelAssociationsCollection.updateOne(
+                { associationId: assoc.associationId },
+                { $set: assoc },
+                { upsert: true }
+            );
         }
     };
 
@@ -83,57 +120,54 @@ const makeMongoStore = async (logger, assistantId) => {
         });
 
         ev.on('messaging-history.set', async ({ chats: newChats, contacts: newContacts, messages: newMessages }) => {
-            newChats.forEach(chat => store.chats.set(chat.id, chat));
-            newContacts.forEach(contact => store.contacts.set(contact.id, contact));
+            newChats.forEach(chat => storeData.chats.set(chat.id, chat));
+            newContacts.forEach(contact => storeData.contacts.set(contact.id, contact));
             newMessages.forEach(msg => {
-                const list = store.messages.get(msg.key.remoteJid) || [];
+                const list = storeData.messages.get(msg.key.remoteJid) || [];
                 list.push(msg);
-                store.messages.set(msg.key.remoteJid, list);
+                storeData.messages.set(msg.key.remoteJid, list);
             });
             await saveToMongo();
         });
 
         ev.on('contacts.upsert', async (newContacts) => {
-            newContacts.forEach(contact => store.contacts.set(contact.id, contact));
+            newContacts.forEach(contact => storeData.contacts.set(contact.id, contact));
             await saveToMongo();
         });
 
         ev.on('chats.upsert', async (newChats) => {
-            newChats.forEach(chat => store.chats.set(chat.id, chat));
+            newChats.forEach(chat => storeData.chats.set(chat.id, chat));
             await saveToMongo();
         });
 
         ev.on('messages.upsert', async ({ messages: newMessages }) => {
             newMessages.forEach(msg => {
-                const list = store.messages.get(msg.key.remoteJid) || [];
+                const list = storeData.messages.get(msg.key.remoteJid) || [];
                 list.push(msg);
-                store.messages.set(msg.key.remoteJid, list);
+                storeData.messages.set(msg.key.remoteJid, list);
             });
             await saveToMongo();
         });
     };
 
     const toJSON = () => ({
-        chats: Array.from(store.chats.values()),
-        contacts: Array.from(store.contacts.values()),
-        messages: Object.fromEntries(store.messages),
-        labels: store.labels.toJSON(),
-        labelAssociations: Array.from(store.labelAssociations.values())
+        chats: Array.from(storeData.chats.values()),
+        contacts: Array.from(storeData.contacts.values()),
+        messages: Object.fromEntries(storeData.messages),
+        labels: Array.from(storeData.labels.values()),
+        labelAssociations: Array.from(storeData.labelAssociations.values())
     });
 
     const fromJSON = (json) => {
-        store.chats = new Map(json.chats.map(chat => [chat.id, chat]));
-        store.contacts = new Map(json.contacts.map(contact => [contact.id, contact]));
-        store.messages = new Map(Object.entries(json.messages).map(([key, value]) => [
-            key,
-            value.map(msg => proto.WebMessageInfo.fromObject(msg))
-        ]));
-        store.labels.fromJSON(json.labels);
-        store.labelAssociations = new Map(json.labelAssociations.map(la => [la.id, la]));
+        storeData.chats = new Map(json.chats.map(chat => [chat.chatId, chat]));
+        storeData.contacts = new Map(json.contacts.map(contact => [contact.contactId, contact]));
+        storeData.messages = new Map(Object.entries(json.messages));
+        storeData.labels = new Map(json.labels.map(label => [label.labelId, label]));
+        storeData.labelAssociations = new Map(json.labelAssociations.map(assoc => [assoc.associationId, assoc]));
     };
 
     return {
-        ...store,
+        ...storeData,
         bind,
         toJSON,
         fromJSON,

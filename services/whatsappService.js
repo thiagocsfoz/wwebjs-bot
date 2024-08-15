@@ -113,18 +113,21 @@ export const listAllChats = async (assistantId) => {
         // Carrega a store específica do assistente
         const store = await makeMongoStore(logger, assistantId);
 
+        console.log(store);
         // Acessar os chats diretamente da store
         const chats = Array.from(store.chats.values());
-
+        console.log("chats", chats);
         if (!chats) {
             throw new Error(`No chats found for assistantId: ${assistantId}`);
         }
 
         return chats.map(chat => {
+            console.log(chat);
             let lastMessage = null;
             let lastMessageTimestamp = null;
 
             const messages = store.messages.get(chat.id);
+            console.log("messages", messages);
             if (messages && messages.length > 0) {
                 const lastMsgObj = messages[messages.length - 1];
                 if (lastMsgObj) {
@@ -156,7 +159,7 @@ export const listAllChats = async (assistantId) => {
 };
 
 export const initializeClients = async (mongoUri) => {
-    const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    const client = new MongoClient(mongoUri);
 
     try {
         await client.connect();
