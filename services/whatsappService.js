@@ -123,12 +123,18 @@ export const listAllChats = async (assistantId) => {
             throw new Error(`No chats found for assistantId: ${assistantId}`);
         }
 
-        return chats.map(chat => ({
-            id: chat.id,
-            name: chat.name || chat.formattedTitle || chat.id.user,
-            unreadCount: chat.unreadCount,
-            lastMessage: chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].body : null
-        }));
+        return chats.map(chat => {
+            const lastMessage = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
+
+            return {
+                id: chat.id,
+                name: chat.name || chat.formattedTitle || chat.id.user, // Nome do contato ou número do WhatsApp
+                formattedNumber: chat.id.user, // Número do WhatsApp formatado
+                unreadCount: chat.unreadCount, // Contagem de mensagens não lidas
+                lastMessage: lastMessage ? lastMessage.message.conversation : null, // Última mensagem enviada ou recebida
+                lastMessageTimestamp: lastMessage ? format(new Date(lastMessage.messageTimestamp * 1000), 'HH:mm:ss') : null // Hora da última mensagem
+            };
+        });
     } catch (error) {
         console.error(`Error listing chats for assistantId: ${assistantId}`, error);
         throw error;
