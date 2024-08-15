@@ -5,44 +5,38 @@ import {
     makeCacheableSignalKeyStore,
     delay,
     fetchLatestBaileysVersion,
-    makeInMemoryStore
 } from '@whiskeysockets/baileys';
 import { loginToInfinityCRM, sendMessageToInfinityCRM } from './infinityCrmService.js';
 import { MongoClient } from 'mongodb';
 import { log } from '../utils/logger.js';
-import path from "path";
-import fs from "fs";
+import { useMongoDBAuthState } from 'mongo-baileys';
+import makeMongoStore from "../utils/makeMongoStore.js";
 
 const logger = log.child({});
 logger.level = 'trace';
 
 export const clients = {};
 
-const loadStoreForAssistant = (assistantId) => {
-    const storeFilePath = `./stores/store_${assistantId}.json`;
-
-    const store = makeInMemoryStore({ logger: console });
-    if (fs.existsSync(storeFilePath)) {
-        store.readFromFile(storeFilePath);
-    } else {
-        console.warn(`Store file not found for assistantId: ${assistantId}`);
-    }
-
-    // Salvar automaticamente o store em intervalos regulares
-    setInterval(() => {
-        store.writeToFile(storeFilePath);
-    }, 10_000);
-
-    return store;
-};
+async function connectToMongoDB(collectionName) {
+    const client = new MongoClient(process.env.MONGO_URI);
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection(collectionName);
+    return { client, collection };
+}
 
 export const initializeClient = async (assistantData) => {
     const { _id: assistantId, name, trainings } = assistantData;
 
-    const store = loadStoreForAssistant(assistantId);
-    const { state, saveCreds } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
+    // Criar o store MongoDB específico para o assistente
+    const store = await makeMongoStore(logger, assistantId);
+
+    // Conectar ao MongoDB para salvar o estado do auth
+    const { collection } = await connectToMongoDB(`baileys_auth_info_${assistantId}`);
+    const { state, saveCreds } = await useMongoDBAuthState(collection);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
+    // Inicializar o socket
     const sock = makeWASocket({
         version,
         auth: {
@@ -52,22 +46,24 @@ export const initializeClient = async (assistantData) => {
         printQRInTerminal: false,
     });
 
+    // Associar o store ao socket
     store?.bind(sock.ev);
 
+    // Salvar credenciais quando houver atualização
     sock.ev.on('creds.update', saveCreds);
 
     console.log('handle connection.update event');
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+        const { connection, lastDisconnect } = update;
 
-        if(connection === 'close') {
-            // reconnect if not logged out
-            if((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+        if (connection === 'close') {
+            // Reconectar se não estiver desconectado manualmente
+            if ((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
                 console.log(`Connection closed for assistantId: ${assistantId}. Reconnecting...`);
                 await delay(5000); // Adicionar um delay antes de tentar reconectar
-                initializeClient(assistantId);
+                initializeClient(assistantData);
             } else {
-                console.log('Connection closed. You are logged out.')
+                console.log('Connection closed. You are logged out.');
             }
         } else if (connection === 'open') {
             console.log(`Client ${assistantId} is ready!`);
@@ -114,10 +110,11 @@ export const listAllChats = async (assistantId) => {
     }
 
     try {
-        const store = loadStoreForAssistant(assistantId); // Carrega a store específica do assistente
+        // Carrega a store específica do assistente
+        const store = await makeMongoStore(logger, assistantId);
 
         // Acessar os chats diretamente da store
-        const chats = store.chats.all();
+        const chats = Array.from(store.chats.values());
 
         if (!chats) {
             throw new Error(`No chats found for assistantId: ${assistantId}`);
@@ -127,17 +124,19 @@ export const listAllChats = async (assistantId) => {
             let lastMessage = null;
             let lastMessageTimestamp = null;
 
-            const messages = store.messages[chat.id];
+            const messages = store.messages.get(chat.id);
             if (messages && messages.length > 0) {
                 const lastMsgObj = messages[messages.length - 1];
                 if (lastMsgObj) {
-                    if(lastMsgObj.key.fromMe) {
-                        lastMessage = lastMsgObj.message.extendedTextMessage.text;
+                    if (lastMsgObj.key.fromMe) {
+                        lastMessage = lastMsgObj.message.extendedTextMessage?.text || null;
                     } else {
-                        lastMessage = lastMsgObj.message.conversation;
+                        lastMessage = lastMsgObj.message.conversation || null;
                     }
 
-                    lastMessageTimestamp = lastMsgObj.messageTimestamp ? format(new Date(lastMsgObj.messageTimestamp * 1000), 'HH:mm:ss') : null;
+                    lastMessageTimestamp = lastMsgObj.messageTimestamp
+                        ? new Date(lastMsgObj.messageTimestamp * 1000).toLocaleTimeString()
+                        : null;
                 }
             }
 
@@ -156,9 +155,8 @@ export const listAllChats = async (assistantId) => {
     }
 };
 
-
-export const initializeClients = async (mongoUri, store) => {
-    const client = new MongoClient(mongoUri);
+export const initializeClients = async (mongoUri) => {
+    const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
 
     try {
         await client.connect();
