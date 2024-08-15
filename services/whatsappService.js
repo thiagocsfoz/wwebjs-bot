@@ -19,7 +19,7 @@ logger.level = 'trace';
 export const clients = {};
 
 const loadStoreForAssistant = (assistantId) => {
-    const storeFilePath = `./stores/baileys_auth_info_${assistantId}`;
+    const storeFilePath = `./stores/store_${assistantId}.json`;
 
     const store = makeInMemoryStore({ logger: console });
     if (fs.existsSync(storeFilePath)) {
@@ -39,6 +39,7 @@ const loadStoreForAssistant = (assistantId) => {
 export const initializeClient = async (assistantData) => {
     const { _id: assistantId, name, trainings } = assistantData;
 
+    const store = loadStoreForAssistant(assistantId);
     const { state, saveCreds } = await useMultiFileAuthState(`./stores/baileys_auth_info_${assistantId}`);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
@@ -50,6 +51,8 @@ export const initializeClient = async (assistantData) => {
         },
         printQRInTerminal: false,
     });
+
+    store?.bind(sock.ev);
 
     sock.ev.on('creds.update', saveCreds);
 
