@@ -118,21 +118,44 @@ export const listAllChats = async (assistantId) => {
 
         // Acessar os chats diretamente da store
         const chats = store.chats.all();
+        const messagesStore = store.messages;
+        const contactsStore = store.contacts || {}; // Pode estar vazio
 
         if (!chats) {
             throw new Error(`No chats found for assistantId: ${assistantId}`);
         }
 
         return chats.map(chat => {
-            const lastMessage = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
+            let lastMessage = null;
+            let lastMessageTimestamp = null;
+            let lastMessageSender = null;
+
+            // Verifica se há mensagens para este chat
+            if (messagesStore[chat.id] && messagesStore[chat.id].length > 0) {
+                const lastMsgObj = messagesStore[chat.id][messagesStore[chat.id].length - 1];
+                if (lastMsgObj) {
+                    if (lastMsgObj.message.conversation) {
+                        lastMessage = lastMsgObj.message.conversation;
+                    } else if (lastMsgObj.message.extendedTextMessage && lastMsgObj.message.extendedTextMessage.text) {
+                        lastMessage = lastMsgObj.message.extendedTextMessage.text;
+                    }
+
+                    lastMessageTimestamp = lastMsgObj.messageTimestamp
+                        ? new Date(lastMsgObj.messageTimestamp * 1000).toLocaleString()
+                        : null;
+
+                    lastMessageSender = lastMsgObj.pushName || lastMsgObj.key.remoteJid;
+                }
+            }
 
             return {
                 id: chat.id,
-                name: chat.name || chat.formattedTitle || chat.id.user, // Nome do contato ou número do WhatsApp
+                name: contactsStore[chat.id]?.name || chat.formattedTitle || chat.id.user, // Nome do contato ou número do WhatsApp
                 formattedNumber: chat.id.user, // Número do WhatsApp formatado
                 unreadCount: chat.unreadCount, // Contagem de mensagens não lidas
-                lastMessage: lastMessage ? lastMessage.message.conversation : null, // Última mensagem enviada ou recebida
-                lastMessageTimestamp: lastMessage ? format(new Date(lastMessage.messageTimestamp * 1000), 'HH:mm:ss') : null // Hora da última mensagem
+                lastMessage: lastMessage, // Última mensagem enviada ou recebida
+                lastMessageTimestamp: lastMessageTimestamp, // Hora da última mensagem
+                lastMessageSender: lastMessageSender // Nome do remetente da última mensagem
             };
         });
     } catch (error) {
@@ -140,6 +163,8 @@ export const listAllChats = async (assistantId) => {
         throw error;
     }
 };
+
+
 
 export const initializeClients = async (mongoUri, store) => {
     const client = new MongoClient(mongoUri);
