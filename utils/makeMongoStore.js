@@ -134,11 +134,12 @@ const makeMongoStore = async (logger, assistantIdStr) => {
             });
 
             ev.on('messages.upsert', async ({ messages: newMessages }) => {
-                newMessages.forEach(msg => {
+                for (const msg of newMessages) {
                     const list = storeData.messages.get(msg.key.remoteJid) || [];
+
                     list.push(msg);
                     storeData.messages.set(msg.key.remoteJid, list);
-                });
+                }
                 await saveToMongo();
             });
         }

@@ -6,7 +6,7 @@ import {
     makeWASocket,
 } from '@whiskeysockets/baileys';
 import {loginToInfinityCRM, sendMessageToInfinityCRM} from './infinityCrmService.js';
-import {MongoClient} from 'mongodb';
+import {MongoClient, ObjectId} from 'mongodb';
 import {log} from '../utils/logger.js';
 import {useMongoDBAuthState} from 'mongo-baileys';
 import makeMongoStore from "../utils/makeMongoStore.js";
@@ -84,7 +84,22 @@ export const initializeClient = async (assistantData) => {
                 const text = msg.message.conversation;
                 console.log(`Mensagem recebida: ${text}`);
 
+                // Verificar se `isSendToIA` está desabilitado para este chat
+                const client = new MongoClient(process.env.MONGO_URI);
                 try {
+                    await client.connect();
+                    const db = client.db();
+                    const chatsCollection = db.collection('chats');
+                    const chat = await chatsCollection.findOne({
+                        assistant_id: new ObjectId(assistantId),
+                        email: msg.key.remoteJid
+                    });
+
+                    if (chat && chat.isSendToIA === true) {
+                        console.log('isSendToIA is true. Message will not be sent to the AI.');
+                        return;
+                    }
+
                     const sessionName = await loginToInfinityCRM();
                     const response = await sendMessageToInfinityCRM(sessionName, text, assistantId.toString(), msg.key.remoteJid);
 
@@ -96,6 +111,8 @@ export const initializeClient = async (assistantData) => {
                     }
                 } catch (error) {
                     console.error('Error:', error);
+                } finally {
+                    await client.close();
                 }
             }
         }
@@ -124,17 +141,43 @@ export const listAllChats = async (assistantId) => {
             let lastMessageTimestamp = null;
 
             const messages = store.messages.get(chat.id);
-            if (chat.conversationTimestamp && messages && messages.length > 0) {
-                const lastMsgObj = messages[messages.length - 1];
-                if (lastMsgObj) {
-                    if (lastMsgObj.key.fromMe) {
-                        lastMessage = lastMsgObj.message?.extendedTextMessage?.text || null;
-                    } else {
-                        lastMessage = lastMsgObj.message?.conversation || null;
-                    }
+            if (messages && messages.length > 0) {
+                const messageMap = new Map();
 
-                    lastMessageTimestamp = chat.conversationTimestamp
-                        ? convertTimestamp(chat.conversationTimestamp)
+                // Populate the map with the messages
+                messages.forEach(msg => {
+                    const msgId = msg.key.id;
+
+                    if (msg.message?.editedMessage?.message?.protocolMessage?.type === 14) {
+                        // It's an edited message, replace the original
+                        const originalMessageId = msg.message.editedMessage.message.protocolMessage.key.id;
+                        if (messageMap.has(originalMessageId)) {
+                            const originalMessage = messageMap.get(originalMessageId);
+                            msg.messageTimestamp = originalMessage.messageTimestamp;
+                            messageMap.set(originalMessageId, msg);
+                        } else {
+                            messageMap.set(msgId, msg);
+                        }
+                    } else {
+                        // Regular message, add to map
+                        messageMap.set(msgId, msg);
+                    }
+                });
+
+                const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+                    const timestampA = a.messageTimestamp?.low || a.messageTimestamp;
+                    const timestampB = b.messageTimestamp?.low || a.messageTimestamp;
+                    return timestampA - timestampB;
+                });
+
+
+                const lastMsgObj = sortedMessages[sortedMessages.length - 1];
+                console.log(lastMsgObj)
+                if (lastMsgObj) {
+                    lastMessage = lastMsgObj.message?.conversation || lastMsgObj.message?.extendedTextMessage?.text || null;
+
+                    lastMessageTimestamp = lastMsgObj.messageTimestamp
+                        ? convertTimestamp(lastMsgObj.messageTimestamp)
                         : null;
                 }
 
@@ -153,6 +196,153 @@ export const listAllChats = async (assistantId) => {
         throw error;
     }
 };
+
+export const listAllMessagesByChatId = async (assistantId, chatId) => {
+    const client = clients[assistantId];
+    if (!client) {
+        throw new Error(`No client found for assistantId: ${assistantId}`);
+    }
+
+    try {
+        const store = stores[assistantId];
+        const messages = store.messages.get(chatId);
+        if (!messages) {
+            throw new Error(`No messages found for chatId: ${chatId}`);
+        }
+
+        const messageMap = new Map();
+
+        // Populate the map with the messages
+        messages.forEach(msg => {
+            const msgId = msg.key.id;
+
+            if (msg.message?.editedMessage?.message?.protocolMessage?.type === 14) {
+                // It's an edited message, replace the original
+                const originalMessageId = msg.message.editedMessage.message.protocolMessage.key.id;
+                if (messageMap.has(originalMessageId)) {
+                    const originalMessage = messageMap.get(originalMessageId);
+                    msg.messageTimestamp = originalMessage.messageTimestamp;
+                    messageMap.set(originalMessageId, msg);
+                } else {
+                    messageMap.set(msgId, msg);
+                }
+            } else {
+                // Regular message, add to map
+                messageMap.set(msgId, msg);
+            }
+        });
+
+        // Convert map back to array and sort by timestamp
+        const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            const timestampA = a.messageTimestamp?.low || a.messageTimestamp;
+            const timestampB = b.messageTimestamp?.low || a.messageTimestamp;
+            return timestampA - timestampB;
+        });
+
+        // Return formatted messages
+        return sortedMessages.filter(msg => msg.message).map(msg => {
+            const content = msg.message?.conversation
+                || msg.message?.extendedTextMessage?.text
+                || msg.message?.editedMessage?.message.protocolMessage.editedMessage.conversation
+                || 'Mensagem sem conteúdo';
+
+            const timestamp = msg.messageTimestamp.low ? convertTimestamp(msg.messageTimestamp) : convertTimestamp({low: msg.messageTimestamp});
+
+            return {
+                id: msg.key.id,
+                fromMe: msg.key.fromMe,
+                content: content,
+                timestamp: timestamp,
+                status: msg.status || 'sent'
+            };
+        });
+    } catch (error) {
+        console.error(`Error listing messages for chatId: ${chatId}`, error);
+        throw error;
+    }
+};
+
+export const markMessagesAsRead = async (assistantId, chatId) => {
+    const client = clients[assistantId];
+    if (!client) {
+        throw new Error(`No client found for assistantId: ${assistantId}`);
+    }
+
+    try {
+        const store = stores[assistantId];
+        const messages = store.messages.get(chatId);
+        if (!messages) {
+            throw new Error(`No messages found for chatId: ${chatId}`);
+        }
+
+        const unreadMessages = messages.filter(msg => !msg.key.fromMe && msg.status !== 'read');
+
+        if (unreadMessages.length === 0) {
+            console.log(`No unread messages to mark as read for chatId: ${chatId}`);
+            return false;
+        }
+
+        // Obtenha os keys das mensagens não lidas
+        const messageKeys = unreadMessages.map(msg => msg.key);
+
+        // Use o método readMessages para marcar as mensagens como lidas
+        await client.readMessages(messageKeys);
+
+        console.log(`All unread messages for chatId: ${chatId} marked as read.`);
+        return true;
+    } catch (error) {
+        console.error(`Error marking messages as read for chatId: ${chatId}`, error);
+        throw error;
+    }
+};
+
+export const sendMessageToChat = async (assistantId, chatId, message) => {
+    const client = clients[assistantId];
+    if (!client) {
+        throw new Error(`No client found for assistantId: ${assistantId}`);
+    }
+
+    try {
+        const sentMessage = await client.sendMessage(chatId, { text: message });
+        console.log(`Message sent to chatId: ${chatId}`, sentMessage);
+        return sentMessage;
+    } catch (error) {
+        console.error(`Error sending message to chatId: ${chatId}`, error);
+        throw error;
+    }
+};
+
+export const disableAssistantForChat = async (assistantId, emailOrChatId) => {
+    const client = new MongoClient(process.env.MONGO_URI);
+    console.log('assistantId', assistantId);
+    console.log('emailOrChatId', emailOrChatId);
+
+    try {
+        await client.connect();
+        const db = client.db();
+        const chatsCollection = db.collection('chats');
+
+        const result = await chatsCollection.updateOne(
+            { assistant_id: new ObjectId(assistantId), email: emailOrChatId },
+            { $set: { isSendToIA: true } }
+        );
+
+        console.log(result)
+        if (result.modifiedCount === 1) {
+            console.log(`Assistant ${assistantId} disabled for chat ${emailOrChatId} successfully.`);
+            return true;
+        } else {
+            console.log(`No updates made for assistant ${assistantId} and chat ${emailOrChatId}.`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error disabling assistant for assistantId: ${assistantId} and chatId: ${emailOrChatId}`, error);
+        throw error;
+    } finally {
+        await client.close();
+    }
+};
+
 
 export const initializeClients = async (mongoUri) => {
     const client = new MongoClient(mongoUri);
