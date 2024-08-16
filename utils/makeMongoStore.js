@@ -11,11 +11,19 @@ const makeMongoStore = async (logger, assistantId) => {
     await client.connect();
     const db = client.db(dbName);
 
-    const chatsCollection = db.collection(`baileys_chats_${assistantId}`);
-    const contactsCollection = db.collection(`baileys_contacts_${assistantId}`);
-    const messagesCollection = db.collection(`baileys_messages_${assistantId}`);
-    const labelsCollection = db.collection(`baileys_labels_${assistantId}`);
-    const labelAssociationsCollection = db.collection(`baileys_label_associations_${assistantId}`);
+    // Usando coleções únicas para armazenar todos os dados
+    const chatsCollection = db.collection('baileys_chats');
+    const contactsCollection = db.collection('baileys_contacts');
+    const messagesCollection = db.collection('baileys_messages');
+    const labelsCollection = db.collection('baileys_labels');
+    const labelAssociationsCollection = db.collection('baileys_label_associations');
+
+    // Definindo índices para melhorar a performance das consultas
+    await chatsCollection.createIndex({ assistantId: 1 });
+    await contactsCollection.createIndex({ assistantId: 1 });
+    await messagesCollection.createIndex({ assistantId: 1, chatId: 1, 'key.id': 1 });
+    await labelsCollection.createIndex({ assistantId: 1 });
+    await labelAssociationsCollection.createIndex({ assistantId: 1 });
 
     const storeData = {
         chats: new Map(),
@@ -27,16 +35,14 @@ const makeMongoStore = async (logger, assistantId) => {
 
     const loadInitialData = async () => {
         console.log('Loading initial data from MongoDB');
-        // Carregar chats do MongoDB e inserir no storeData
-        const chats = await chatsCollection.find({}).toArray();
+
+        const chats = await chatsCollection.find({ assistantId }).toArray();
         chats.forEach(chat => storeData.chats.set(chat.id, chat));
 
-        // Carregar contatos do MongoDB e inserir no storeData
-        const contacts = await contactsCollection.find({}).toArray();
+        const contacts = await contactsCollection.find({ assistantId }).toArray();
         contacts.forEach(contact => storeData.contacts.set(contact.id, contact));
 
-        // Carregar mensagens do MongoDB e inserir no storeData
-        const messages = await messagesCollection.find({}).toArray();
+        const messages = await messagesCollection.find({ assistantId }).toArray();
         messages.forEach(msg => {
             if (!storeData.messages.has(msg.chatId)) {
                 storeData.messages.set(msg.chatId, []);
@@ -44,23 +50,21 @@ const makeMongoStore = async (logger, assistantId) => {
             storeData.messages.get(msg.chatId).push(msg);
         });
 
-        // Carregar labels do MongoDB e inserir no storeData
-        const labels = await labelsCollection.find({}).toArray();
+        const labels = await labelsCollection.find({ assistantId }).toArray();
         labels.forEach(label => storeData.labels.set(label.id, label));
 
-        // Carregar associações de labels do MongoDB e inserir no storeData
-        const labelAssociations = await labelAssociationsCollection.find({}).toArray();
+        const labelAssociations = await labelAssociationsCollection.find({ assistantId }).toArray();
         labelAssociations.forEach(assoc => storeData.labelAssociations.set(assoc.id, assoc));
     };
 
     await loadInitialData();
 
     const saveToMongo = async () => {
-        // Salvar chats no MongoDB
         for (const chat of storeData.chats.values()) {
-            const doc = { ...chat, type: 'chat' };
-            const filter = { id: chat.id, type: 'chat' };
-            delete doc._id;
+            console.log(chat);
+            const doc = { ...chat, assistantId, type: 'chat' };
+            const filter = { id: chat.id, assistantId, type: 'chat' };
+            if (doc._id) delete doc._id;
 
             await chatsCollection.updateOne(
                 filter,
@@ -69,11 +73,10 @@ const makeMongoStore = async (logger, assistantId) => {
             );
         }
 
-        // Salvar contatos no MongoDB
         for (const contact of storeData.contacts.values()) {
-            const doc = { ...contact, type: 'contact' };
-            const filter = { id: contact.id, type: 'contact' };
-            delete doc._id;
+            const doc = { ...contact, assistantId, type: 'contact' };
+            const filter = { id: contact.id, assistantId, type: 'contact' };
+            if (doc._id) delete doc._id;
 
             await contactsCollection.updateOne(
                 filter,
@@ -82,31 +85,40 @@ const makeMongoStore = async (logger, assistantId) => {
             );
         }
 
-        // Save messages
         for (const [chatId, msgs] of storeData.messages.entries()) {
             for (const msg of msgs) {
+                const doc = { ...msg, assistantId, chatId, type: 'message' };
+                const filter = { 'key.id': msg.key.id, chatId, assistantId, type: 'message' };
+                if (doc._id) delete doc._id;
+
                 await messagesCollection.updateOne(
-                    { 'key.id': msg.key.id, chatId: chatId },
-                    { $set: { ...msg, chatId } },
+                    filter,
+                    { $set: doc },
                     { upsert: true }
                 );
             }
         }
 
-        // Save labels
         for (const label of storeData.labels.values()) {
+            const doc = { ...label, assistantId };
+            const filter = { labelId: label.labelId, assistantId };
+            if (label._id) delete label._id;
+
             await labelsCollection.updateOne(
-                { labelId: label.labelId },
-                { $set: label },
+                filter,
+                { $set: doc },
                 { upsert: true }
             );
         }
 
-        // Save label associations
         for (const assoc of storeData.labelAssociations.values()) {
+            const doc = { ...assoc, assistantId };
+            const filter = { associationId: assoc.associationId, assistantId };
+            if (assoc._id) delete assoc._id;
+
             await labelAssociationsCollection.updateOne(
-                { associationId: assoc.associationId },
-                { $set: assoc },
+                filter,
+                { $set: doc },
                 { upsert: true }
             );
         }
@@ -136,6 +148,7 @@ const makeMongoStore = async (logger, assistantId) => {
         });
 
         ev.on('chats.upsert', async (newChats) => {
+            console.log("newChats", newChats);
             newChats.forEach(chat => storeData.chats.set(chat.id, chat));
             await saveToMongo();
         });
