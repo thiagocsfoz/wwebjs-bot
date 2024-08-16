@@ -1,21 +1,22 @@
 import {
-    makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason,
-    makeCacheableSignalKeyStore,
     delay,
+    DisconnectReason,
     fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    makeWASocket,
 } from '@whiskeysockets/baileys';
-import { loginToInfinityCRM, sendMessageToInfinityCRM } from './infinityCrmService.js';
-import { MongoClient } from 'mongodb';
-import { log } from '../utils/logger.js';
-import { useMongoDBAuthState } from 'mongo-baileys';
+import {loginToInfinityCRM, sendMessageToInfinityCRM} from './infinityCrmService.js';
+import {MongoClient} from 'mongodb';
+import {log} from '../utils/logger.js';
+import {useMongoDBAuthState} from 'mongo-baileys';
 import makeMongoStore from "../utils/makeMongoStore.js";
 
 const logger = log.child({});
 logger.level = 'trace';
 
 export const clients = {};
+
+const stores = [];
 
 async function connectToMongoDB(collectionName) {
     const client = new MongoClient(process.env.MONGO_URI);
@@ -30,6 +31,7 @@ export const initializeClient = async (assistantData) => {
 
     // Criar o store MongoDB específico para o assistente
     const store = await makeMongoStore(logger, assistantId);
+    stores[assistantId] = store;
 
     // Conectar ao MongoDB para salvar o estado do auth
     const { collection } = await connectToMongoDB(`baileys_auth_info_${assistantId}`);
@@ -110,47 +112,41 @@ export const listAllChats = async (assistantId) => {
     }
 
     try {
-        // Carrega a store específica do assistente
-        const store = await makeMongoStore(logger, assistantId);
-
-        console.log(store);
+        const store = stores[assistantId];
         // Acessar os chats diretamente da store
         const chats = Array.from(store.chats.values());
-        console.log("chats", chats);
         if (!chats) {
             throw new Error(`No chats found for assistantId: ${assistantId}`);
         }
 
-        return chats.map(chat => {
-            console.log(chat);
+        return chats.filter(chat => chat.conversationTimestamp).map(chat => {
             let lastMessage = null;
             let lastMessageTimestamp = null;
 
             const messages = store.messages.get(chat.id);
-            console.log("messages", messages);
-            if (messages && messages.length > 0) {
+            if (chat.conversationTimestamp && messages && messages.length > 0) {
                 const lastMsgObj = messages[messages.length - 1];
                 if (lastMsgObj) {
                     if (lastMsgObj.key.fromMe) {
-                        lastMessage = lastMsgObj.message.extendedTextMessage?.text || null;
+                        lastMessage = lastMsgObj.message?.extendedTextMessage?.text || null;
                     } else {
-                        lastMessage = lastMsgObj.message.conversation || null;
+                        lastMessage = lastMsgObj.message?.conversation || null;
                     }
 
-                    lastMessageTimestamp = lastMsgObj.messageTimestamp
-                        ? new Date(lastMsgObj.messageTimestamp * 1000).toLocaleTimeString()
+                    lastMessageTimestamp = chat.conversationTimestamp
+                        ? convertTimestamp(chat.conversationTimestamp)
                         : null;
                 }
-            }
 
-            return {
-                id: chat.id,
-                name: chat.name || chat.formattedTitle || chat.id.user, // Nome do contato ou número do WhatsApp
-                formattedNumber: chat.id.user, // Número do WhatsApp formatado
-                unreadCount: chat.unreadCount, // Contagem de mensagens não lidas
-                lastMessage: lastMessage, // Última mensagem enviada ou recebida
-                lastMessageTimestamp: lastMessageTimestamp // Hora da última mensagem
-            };
+                return {
+                    id: chat.id,
+                    name: chat.name || chat.formattedTitle || chat.id.user, // Nome do contato ou número do WhatsApp
+                    formattedNumber: chat.id.user, // Número do WhatsApp formatado
+                    unreadCount: chat.unreadCount, // Contagem de mensagens não lidas
+                    lastMessage: lastMessage, // Última mensagem enviada ou recebida
+                    lastMessageTimestamp: lastMessageTimestamp // Hora da última mensagem
+                };
+            }
         });
     } catch (error) {
         console.error(`Error listing chats for assistantId: ${assistantId}`, error);
@@ -176,3 +172,15 @@ export const initializeClients = async (mongoUri) => {
         await client.close();
     }
 };
+
+function convertTimestamp({ low, high, unsigned }) {
+    // Converter o timestamp (considerando apenas a parte "low" que é em segundos)
+    const milliseconds = low * 1000;
+
+    // Criar um objeto Date usando o timestamp em milissegundos
+    const date = new Date(milliseconds);
+
+    // Converter a data para string no formato desejado
+    // Exemplo: toLocaleString() retorna a data e hora local como string
+    return date.toLocaleString();
+}
