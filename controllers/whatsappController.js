@@ -65,6 +65,8 @@ export const checkConnection = (req, res) => {
     }
 };
 
+import { MongoClient } from 'mongodb';
+
 export const disconnectPhone = async (req, res) => {
     console.log('disconnectPhone');
     const { assistantId } = req.body;
@@ -72,21 +74,24 @@ export const disconnectPhone = async (req, res) => {
     const client = clients[assistantId.$oid];
     if (client) {
         try {
-            //await client.logout();
+            await client.logout();
             delete clients[assistantId.$oid];
             console.log(`Client disconnected and removed for assistantId: ${assistantId}`);
 
-            // Remove the authentication folder
-            const authPath = path.resolve(`./stores/baileys_auth_info_${assistantId}`);
-            fs.rm(authPath, { recursive: true, force: true }, (err) => {
-                if (err) {
-                    console.error(`Error removing auth folder for assistantId: ${assistantId}`, err);
-                } else {
-                    console.log(`Auth folder removed for assistantId: ${assistantId}`);
-                }
-            });
+            // Connect to MongoDB
+            const mongoClient = new MongoClient(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+            await mongoClient.connect();
 
-            return res.json({ success: true, message: 'Client disconnected successfully' });
+            const db = mongoClient.db(); // Replace with your database name if needed
+            const collectionName = `baileys_auth_info_${assistantId.$oid}`;
+
+            // Drop the collection
+            const result = await db.collection(collectionName).drop();
+            console.log(`Collection '${collectionName}' removed for assistantId: ${assistantId.$oid}`);
+
+            await mongoClient.close();
+
+            return res.json({ success: true, message: 'Client disconnected successfully and auth collection removed' });
         } catch (error) {
             console.error(`Error disconnecting client for assistantId: ${assistantId}`, error);
             return res.status(500).json({ success: false, message: 'Error disconnecting client', error });
