@@ -100,32 +100,33 @@ export const initializeClient = async (assistantData) => {
                         return;
                     }
 
-                    if (text.includes('####ATENDENTE####')) {
-                        console.log('Palavra chave ####ATENDENTE#### detectada.');
-
-                        // Marcar o chat como isSendToIA: true
-                        await chatsCollection.updateOne(
-                            {
-                                assistant_id: new ObjectId(assistantId),
-                                email: msg.key.remoteJid
-                            },
-                            { $set: { isSendToIA: true } }
-                        );
-
-                        // Remover '####ATENDENTE####' da mensagem
-                        text = text.replace('####ATENDENTE####', '').trim();
-
-                        if(text === "Vou transferir você para um atendente humano agora.") {
-
-                        }
-                    }
-
                     const sessionName = await loginToInfinityCRM();
                     const response = await sendMessageToInfinityCRM(sessionName, text, assistantId.toString(), msg.key.remoteJid);
 
                     if (response.result.reply) {
                         console.log(`Msg response ${response.result.reply}`);
-                        await sock.sendMessage(msg.key.remoteJid, { text: response.result.reply });
+                        let msgIa = response.result.reply;
+                        if (msgIa.includes('####ATENDENTE####')) {
+                            console.log('Palavra chave ####ATENDENTE#### detectada.');
+
+                            // Marcar o chat como isSendToIA: true
+                            await chatsCollection.updateOne(
+                                {
+                                    assistant_id: new ObjectId(assistantId),
+                                    email: msg.key.remoteJid
+                                },
+                                { $set: { isSendToIA: true } }
+                            );
+
+                            // Remover '####ATENDENTE####' da mensagem
+                            msgIa = msgIa.replace('####ATENDENTE####', '').trim();
+
+                            if(msgIa === "Vou transferir você para um atendente humano agora.") {
+
+                            }
+                        }
+
+                        await sock.sendMessage(msg.key.remoteJid, { text: msgIa });
                     } else {
                         console.error('Failed to get a response from the assistant.');
                     }
