@@ -121,8 +121,8 @@ export const initializeClient = async (assistantData) => {
                             // Remover '####ATENDENTE####' da mensagem
                             msgIa = msgIa.replace('####ATENDENTE####', '').trim();
 
-                            if(msgIa === "Vou transferir você para um atendente humano agora.") {
-
+                            if(msgIa === "") {
+                                msgIa = "Vou transferir você para um atendente humano agora";
                             }
                         }
 
