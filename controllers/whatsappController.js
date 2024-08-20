@@ -65,8 +65,6 @@ export const checkConnection = (req, res) => {
     }
 };
 
-import { MongoClient } from 'mongodb';
-
 export const disconnectPhone = async (req, res) => {
     console.log('disconnectPhone');
     const { assistantId } = req.body;
@@ -79,7 +77,7 @@ export const disconnectPhone = async (req, res) => {
             console.log(`Client disconnected and removed for assistantId: ${assistantId}`);
 
             // Connect to MongoDB
-            const mongoClient = new MongoClient(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+            const mongoClient = new MongoClient(process.env.MONGO_URI);
             await mongoClient.connect();
 
             const db = mongoClient.db(); // Replace with your database name if needed
