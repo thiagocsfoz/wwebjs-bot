@@ -81,7 +81,7 @@ export const initializeClient = async (assistantData) => {
         if (!msg.key.fromMe && m.type === 'notify') {
             const messageType = Object.keys(msg.message)[0];
             if (messageType === 'conversation') {
-                const text = msg.message.conversation;
+                let text = msg.message.conversation;
                 console.log(`Mensagem recebida: ${text}`);
 
                 // Verificar se `isSendToIA` está desabilitado para este chat
@@ -98,6 +98,26 @@ export const initializeClient = async (assistantData) => {
                     if (chat && chat.isSendToIA === true) {
                         console.log('isSendToIA is true. Message will not be sent to the AI.');
                         return;
+                    }
+
+                    if (text.includes('####ATENDENTE####')) {
+                        console.log('Palavra chave ####ATENDENTE#### detectada.');
+
+                        // Marcar o chat como isSendToIA: true
+                        await chatsCollection.updateOne(
+                            {
+                                assistant_id: new ObjectId(assistantId),
+                                email: msg.key.remoteJid
+                            },
+                            { $set: { isSendToIA: true } }
+                        );
+
+                        // Remover '####ATENDENTE####' da mensagem
+                        text = text.replace('####ATENDENTE####', '').trim();
+
+                        if(text === "Vou transferir você para um atendente humano agora.") {
+
+                        }
                     }
 
                     const sessionName = await loginToInfinityCRM();
