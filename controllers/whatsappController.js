@@ -69,11 +69,11 @@ export const disconnectPhone = async (req, res) => {
     console.log('disconnectPhone');
     const { assistantId } = req.body;
     console.log("assistantId", assistantId);
-    const client = clients[assistantId.$oid];
+    const client = clients[assistantId];
     if (client) {
         try {
             await client.logout();
-            delete clients[assistantId.$oid];
+            delete clients[assistantId];
             console.log(`Client disconnected and removed for assistantId: ${assistantId}`);
 
             // Connect to MongoDB
@@ -81,11 +81,11 @@ export const disconnectPhone = async (req, res) => {
             await mongoClient.connect();
 
             const db = mongoClient.db(); // Replace with your database name if needed
-            const collectionName = `baileys_auth_info_${assistantId.$oid}`;
+            const collectionName = `baileys_auth_info_${assistantId}`;
 
             // Drop the collection
             const result = await db.collection(collectionName).drop();
-            console.log(`Collection '${collectionName}' removed for assistantId: ${assistantId.$oid}`);
+            console.log(`Collection '${collectionName}' removed for assistantId: ${assistantId}`);
 
             await mongoClient.close();
 
